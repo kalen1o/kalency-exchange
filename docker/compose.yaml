@@ -1,0 +1,183 @@
+name: kalency
+
+services:
+  redis:
+    image: redis:7.2-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    profiles:
+      - dev
+      - loadtest
+      - prodlike
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: "kalency"
+      POSTGRES_USER: "kalency"
+      POSTGRES_PASSWORD: "kalency"
+    volumes:
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    profiles:
+      - dev
+      - loadtest
+      - prodlike
+
+  matching-engine:
+    build:
+      context: ../apps/matching-engine
+      dockerfile: Dockerfile
+    environment:
+      PORT: "8081"
+      REDIS_ADDR: "redis:6379"
+    depends_on:
+      - redis
+    ports:
+      - "8081:8081"
+    profiles:
+      - dev
+      - loadtest
+      - prodlike
+
+  market-sim:
+    build:
+      context: ../apps/market-sim
+      dockerfile: Dockerfile
+    environment:
+      PORT: "8082"
+      REDIS_ADDR: "redis:6379"
+      SIM_STREAM_KEY: "kalency:v1:stream:ticks"
+      SIM_SYMBOLS: "BTC-USD,ETH-USD"
+      SIM_VOLATILITY: "0.005"
+      SIM_SELL_BIAS: "0.55"
+      SIM_INTERVAL_MS: "250"
+      SIM_START_ON_BOOT: "true"
+    depends_on:
+      - redis
+    ports:
+      - "8082:8082"
+    profiles:
+      - dev
+      - loadtest
+      - prodlike
+
+  candle-aggregator:
+    build:
+      context: ../apps/candle-aggregator
+      dockerfile: Dockerfile
+    environment:
+      PORT: "8083"
+      REDIS_ADDR: "redis:6379"
+      CANDLE_TICK_STREAM: "kalency:v1:stream:ticks"
+      CANDLE_KEY_PREFIX: "v1"
+      CANDLE_START_ID: "$"
+      CANDLE_BATCH_SIZE: "100"
+      CANDLE_BLOCK_MS: "250"
+      CANDLE_TTL_HOURS: "720"
+    depends_on:
+      - redis
+      - market-sim
+    ports:
+      - "8083:8083"
+    profiles:
+      - dev
+      - loadtest
+      - prodlike
+
+  ledger-writer:
+    build:
+      context: ../apps/ledger-writer
+      dockerfile: Dockerfile
+    environment:
+      PORT: "8084"
+      REDIS_ADDR: "redis:6379"
+      LEDGER_STREAM_KEY: "kalency:v1:stream:executions"
+      LEDGER_START_ID: "$"
+      LEDGER_BATCH_SIZE: "100"
+      LEDGER_BLOCK_MS: "250"
+      POSTGRES_DSN: "postgres://kalency:kalency@postgres:5432/kalency?sslmode=disable"
+    depends_on:
+      - redis
+      - postgres
+      - matching-engine
+    ports:
+      - "8084:8084"
+    profiles:
+      - dev
+      - loadtest
+      - prodlike
+
+  chartgpu-sidecar:
+    build:
+      context: ../apps/chartgpu-sidecar
+      dockerfile: Dockerfile
+    environment:
+      PORT: "8086"
+    ports:
+      - "8086:8086"
+    profiles:
+      - dev
+      - loadtest
+      - prodlike
+
+  chart-render-gateway:
+    build:
+      context: ../apps/chart-render-gateway
+      dockerfile: Dockerfile
+    environment:
+      PORT: "8085"
+      CHARTGPU_SIDECAR_URL: "http://chartgpu-sidecar:8086/render"
+      CHART_CACHE_TTL_MS: "60000"
+    depends_on:
+      - chartgpu-sidecar
+    ports:
+      - "8085:8085"
+    profiles:
+      - dev
+      - loadtest
+      - prodlike
+
+  gateway-api:
+    build:
+      context: ../apps/gateway-api
+      dockerfile: Dockerfile
+    environment:
+      PORT: "8080"
+      MATCHING_ENGINE_URL: "http://matching-engine:8081"
+      MARKET_SIM_URL: "http://market-sim:8082"
+      CANDLE_REDIS_ADDR: "redis:6379"
+      CANDLE_KEY_PREFIX: "v1"
+      CHART_RENDER_GATEWAY_URL: "http://chart-render-gateway:8085"
+      JWT_SECRET: "dev-secret"
+      API_KEYS: "demo-key:demo-user"
+    depends_on:
+      - matching-engine
+      - market-sim
+      - redis
+      - chart-render-gateway
+    ports:
+      - "8080:8080"
+    profiles:
+      - dev
+      - loadtest
+      - prodlike
+
+  web:
+    build:
+      context: ../apps/web
+      dockerfile: Dockerfile
+    environment:
+      NEXT_PUBLIC_API_BASE: "http://localhost:8080"
+      NEXT_PUBLIC_API_KEY: "demo-key"
+      NEXT_PUBLIC_DEFAULT_USER: "demo-user"
+    depends_on:
+      - gateway-api
+    ports:
+      - "3000:3000"
+    profiles:
+      - dev
+      - loadtest
+      - prodlike

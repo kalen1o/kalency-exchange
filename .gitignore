@@ -1,0 +1,51 @@
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local environment files
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Node / frontend build artifacts
+**/node_modules/
+**/.next/
+**/dist/
+**/build/
+**/coverage/
+**/.turbo/
+**/.cache/
+**/.nyc_output/
+
+# Go build and test artifacts
+**/bin/
+*.test
+coverage.out
+*.coverprofile
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+.coverage
+htmlcov/
+
+# Temporary directories
+tmp/
+temp/
