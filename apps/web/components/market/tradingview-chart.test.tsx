@@ -1,6 +1,7 @@
 import React from "react";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createChart } from "lightweight-charts";
 import { TradingViewChart } from "./tradingview-chart";
 
 let crosshairHandler: ((param: any) => void) | null = null;
@@ -36,7 +37,6 @@ const volumePriceScaleApi = {
 };
 
 const chartApplyOptionsMock = vi.fn();
-
 const seriesInstances: Array<{ setData: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn>; applyOptions: ReturnType<typeof vi.fn> }> = [];
 
 function createSeriesMock() {
@@ -109,6 +109,33 @@ describe("TradingViewChart", () => {
     );
 
     expect(timeScaleApi.setVisibleLogicalRange).toHaveBeenCalledWith({ from: -20, to: 12 });
+  });
+
+  it("disables the chart attribution logo", () => {
+    render(
+      <TradingViewChart
+        quoteCurrency="USD"
+        bars={[
+          {
+            timeSec: 1739662800 as any,
+            open: 100,
+            high: 103,
+            low: 99,
+            close: 102,
+            volume: 12
+          }
+        ]}
+      />
+    );
+
+    expect(vi.mocked(createChart)).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        layout: expect.objectContaining({
+          attributionLogo: false
+        })
+      })
+    );
   });
 
   it("does not override logical range when initial scroll position is provided", () => {

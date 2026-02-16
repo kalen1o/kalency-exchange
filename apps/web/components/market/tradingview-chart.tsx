@@ -155,7 +155,8 @@ export function TradingViewChart({
       layout: {
         background: { type: ColorType.Solid, color: "#0B0E11" },
         textColor: "#C9D1D9",
-        fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+        fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+        attributionLogo: false
       },
       rightPriceScale: {
         visible: true,
