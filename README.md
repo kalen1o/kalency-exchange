@@ -1,7 +1,7 @@
 # Kalency
 
 <p align="center">
-  <img src="./assets/logo.png" alt="Kalency logo" width="140" />
+  <img src="./assets/logo.png" alt="Kalency logo" width="280" />
 </p>
 
 <p align="center">
