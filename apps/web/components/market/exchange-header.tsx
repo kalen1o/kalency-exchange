@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { SquareFunction } from "lucide-react";
+import { BarChart3, SquareFunction, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,57 @@ export type ExchangeHeaderProps = {
   userId: string;
   onOpenPanel: (tab: HeaderPanelTab) => void;
 };
+
+type BarStyleIconProps = {
+  style: ChartBarStyle;
+  testId: string;
+  className?: string;
+};
+
+function BarStyleIcon({ style, testId, className = "h-3.5 w-3.5" }: BarStyleIconProps) {
+  if (style === "candles") {
+    return (
+      <svg
+        data-testid={testId}
+        viewBox="0 0 24 24"
+        className={className}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        <path d="M7 4v16" />
+        <path d="M17 4v16" />
+        <rect x="5.5" y="8" width="3" height="6" rx="0.6" fill="currentColor" stroke="none" />
+        <rect x="15.5" y="10" width="3" height="4" rx="0.6" fill="currentColor" stroke="none" />
+      </svg>
+    );
+  }
+  if (style === "bars") {
+    return <BarChart3 data-testid={testId} className={className} aria-hidden />;
+  }
+  if (style === "line") {
+    return <TrendingUp data-testid={testId} className={className} aria-hidden />;
+  }
+  return (
+    <svg
+      data-testid={testId}
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M4 16L9 12L13 14L20 8" />
+      <path d="M4 20V16L9 12L13 14L20 8V20Z" fill="currentColor" opacity="0.2" stroke="none" />
+    </svg>
+  );
+}
 
 export function ExchangeHeader({
   symbol,
@@ -117,6 +168,12 @@ export function ExchangeHeader({
     >
       <div className="flex min-w-0 flex-1 items-stretch divide-x divide-border/70 overflow-x-auto">
         <div className="flex shrink-0 items-center gap-2 px-3 py-2">
+          <img
+            data-testid="header-small-logo"
+            src="/small-logo.png"
+            alt="Kalency logo"
+            className="h-5 w-5 rounded-sm object-contain"
+          />
           <button
             type="button"
             data-testid="pairs-open-button"
@@ -151,12 +208,18 @@ export function ExchangeHeader({
               data-testid="chart-bar-style-select"
               className="h-8 w-[108px] rounded-none border-0 bg-transparent px-0 py-0 font-mono text-xs shadow-none focus:ring-0 focus:ring-offset-0"
             >
-              <SelectValue placeholder="Style" />
+              <div className="flex items-center gap-1.5">
+                <BarStyleIcon style={barStyle} testId={`chart-style-icon-${barStyle}-trigger`} />
+                <span className="capitalize">{barStyle.replace("-", " ")}</span>
+              </div>
             </SelectTrigger>
             <SelectContent>
               {barStyleOptions.map((style) => (
                 <SelectItem key={style} value={style} className="font-mono text-xs capitalize">
-                  {style.replace("-", " ")}
+                  <div className="flex items-center gap-2">
+                    <BarStyleIcon style={style} testId={`chart-style-icon-${style}-option`} />
+                    <span>{style.replace("-", " ")}</span>
+                  </div>
                 </SelectItem>
               ))}
             </SelectContent>
