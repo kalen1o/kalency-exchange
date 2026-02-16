@@ -12,6 +12,7 @@ type Controller interface {
 	SetVolatility(volatility float64) error
 	PauseSymbol(symbol string) error
 	ResumeSymbol(symbol string) error
+	EnsureSymbol(symbol string) error
 	Running() bool
 }
 
@@ -117,12 +118,16 @@ func (s *Server) handleSymbols(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	paused := false
+	ensured := false
 	switch action {
 	case "pause":
 		paused = true
 		err = s.controller.PauseSymbol(symbol)
 	case "resume":
 		err = s.controller.ResumeSymbol(symbol)
+	case "ensure":
+		ensured = true
+		err = s.controller.EnsureSymbol(symbol)
 	default:
 		http.NotFound(w, r)
 		return
@@ -137,6 +142,7 @@ func (s *Server) handleSymbols(w http.ResponseWriter, r *http.Request) {
 		"running": s.controller.Running(),
 		"symbol":  symbol,
 		"paused":  paused,
+		"ensured": ensured,
 	})
 }
 

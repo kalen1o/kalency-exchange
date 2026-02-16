@@ -46,6 +46,8 @@ export function renderCandlestickSVG(
 
   const step = chartWidth / sorted.length;
   const bodyWidth = Math.max(2, Math.min(9, step * 0.66));
+  const volumeAreaHeight = Math.max(32, chartHeight * 0.22);
+  const maxVolume = Math.max(1, ...sorted.map((candle) => candle.volume));
 
   const gridLines = Array.from({ length: 6 }, (_, idx) => {
     const y = chartTop + (chartHeight / 5) * idx;
@@ -71,6 +73,18 @@ export function renderCandlestickSVG(
     })
     .join("");
 
+  const volumeSvg = sorted
+    .map((candle, idx) => {
+      const x = chartLeft + (idx + 0.5) * step;
+      const color = candle.close >= candle.open ? up : down;
+      const normalized = Math.max(0, candle.volume) / maxVolume;
+      const barHeight = Math.max(1.2, normalized * volumeAreaHeight);
+      const barX = x - bodyWidth / 2;
+      const barY = chartBottom - barHeight;
+      return `<rect data-candle-idx='${idx}' class='volume-bar' x='${barX.toFixed(2)}' y='${barY.toFixed(2)}' width='${bodyWidth.toFixed(2)}' height='${barHeight.toFixed(2)}' fill='${color}' opacity='0.35' rx='1'/>`;
+    })
+    .join("");
+
   return [
     `<svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}' viewBox='0 0 ${width} ${height}'>`,
     `<rect width='${width}' height='${height}' fill='${bg}'/>`,
@@ -78,6 +92,7 @@ export function renderCandlestickSVG(
     `<text x='24' y='74' fill='${muted}' font-size='16' font-family='monospace'>timeframe ${safeTimeframe}</text>`,
     `<rect x='${chartLeft}' y='${chartTop}' width='${chartWidth}' height='${chartHeight}' fill='none' stroke='${grid}' stroke-width='1'/>`,
     gridLines,
+    volumeSvg,
     candlesSvg,
     "</svg>"
   ].join("");

@@ -7,6 +7,8 @@ import type { ChartInterval } from "@/lib/api";
 export type MarketChartViewState = {
   barSpacing: number;
   scrollPosition: number;
+  priceFrom: number | null;
+  priceTo: number | null;
 };
 
 export type UseMarketUrlStateParams = {
@@ -29,7 +31,9 @@ export function useMarketUrlState({
       pair: parseAsStringEnum([...pairOptions]).withDefault(defaultPair),
       tf: parseAsStringEnum([...timeframeOptions]).withDefault(defaultTimeframe),
       z: parseAsFloat,
-      p: parseAsFloat
+      p: parseAsFloat,
+      yf: parseAsFloat,
+      yt: parseAsFloat
     },
     { history: "replace" }
   );
@@ -50,10 +54,27 @@ export function useMarketUrlState({
 
   const setView = useCallback(
     (view: Partial<MarketChartViewState>) => {
-      void setState({
-        z: view.barSpacing ?? null,
-        p: view.scrollPosition ?? null
-      });
+      const nextState: {
+        z?: number | null;
+        p?: number | null;
+        yf?: number | null;
+        yt?: number | null;
+      } = {};
+
+      if ("barSpacing" in view) {
+        nextState.z = view.barSpacing ?? null;
+      }
+      if ("scrollPosition" in view) {
+        nextState.p = view.scrollPosition ?? null;
+      }
+      if ("priceFrom" in view) {
+        nextState.yf = view.priceFrom ?? null;
+      }
+      if ("priceTo" in view) {
+        nextState.yt = view.priceTo ?? null;
+      }
+
+      void setState(nextState);
     },
     [setState]
   );
@@ -65,11 +86,15 @@ export function useMarketUrlState({
     setTimeframe,
     view: {
       barSpacing: state.z ?? defaultView.barSpacing ?? 10,
-      scrollPosition: state.p ?? defaultView.scrollPosition ?? 0
+      scrollPosition: state.p ?? defaultView.scrollPosition ?? 0,
+      priceFrom: state.yf ?? null,
+      priceTo: state.yt ?? null
     } satisfies MarketChartViewState,
     initialView: {
       barSpacing: state.z ?? undefined,
-      scrollPosition: state.p ?? undefined
+      scrollPosition: state.p ?? undefined,
+      priceFrom: state.yf ?? undefined,
+      priceTo: state.yt ?? undefined
     },
     setView
   };

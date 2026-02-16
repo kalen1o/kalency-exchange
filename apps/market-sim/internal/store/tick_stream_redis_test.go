@@ -28,6 +28,7 @@ func TestRedisTickStreamSinkPublishTick(t *testing.T) {
 		Symbol: "BTC-USD",
 		Price:  101.25,
 		Delta:  0.0125,
+		Volume: 1.75,
 		TS:     time.Unix(10, 0).UTC(),
 	}
 
@@ -49,5 +50,8 @@ func TestRedisTickStreamSinkPublishTick(t *testing.T) {
 	}
 	if got := fmt.Sprint(values["price"]); got != "101.25" {
 		t.Fatalf("expected price 101.25, got %s", got)
+	}
+	if got := fmt.Sprint(values["volume"]); got != "1.75" {
+		t.Fatalf("expected volume 1.75, got %s", got)
 	}
 }

@@ -1,7 +1,7 @@
 # Kalency v1 Plan Index
 
 - Version: Kalency v1.0 (2026-02-14)
-- Scope: Documentation split only (no runtime behavior change)
+- Scope: Kalency v1 architecture and contracts reference (runtime-aligned)
 - Canonical API contracts: `docs/kalency-v1/02-api-and-contracts.md`
 
 ## Overview

@@ -41,3 +41,22 @@ func TestSetVolatilityForwardsBody(t *testing.T) {
 		t.Fatalf("set volatility failed: %v", err)
 	}
 }
+
+func TestEnsureSymbolForwardsRequest(t *testing.T) {
+	var calledPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calledPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"symbol":"SOL-USD","ensured":true}`))
+	}))
+	defer server.Close()
+
+	client := NewHTTPClient(server.URL)
+	_, err := client.EnsureSymbol("SOL-USD")
+	if err != nil {
+		t.Fatalf("ensure symbol failed: %v", err)
+	}
+	if calledPath != "/v1/admin/symbols/SOL-USD/ensure" {
+		t.Fatalf("unexpected path %q", calledPath)
+	}
+}

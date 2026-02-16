@@ -75,16 +75,6 @@ export type Candle = {
   volume: number;
 };
 
-export type ChartRenderRequest = {
-  symbol: string;
-  timeframe: string;
-  from?: string;
-  to?: string;
-  width?: number;
-  height?: number;
-  theme?: string;
-};
-
 export type ChartInterval =
   | "1m"
   | "3m"
@@ -134,14 +124,14 @@ export function mapChartIntervalToBackendTimeframe(interval: ChartInterval): Bac
 
 export type ChartRangePreset = "15m" | "1h" | "4h" | "24h";
 
-export type ChartRenderResponse = {
-  cached: boolean;
-  cacheKey: string;
-  renderId: string;
-  artifactType: string;
-  artifact: string;
-  meta: ChartRenderRequest;
+type BinanceExchangeSymbol = {
+  symbol: string;
+  status: string;
+  isSpotTradingAllowed?: boolean;
 };
+
+const FIAT_EQUIVALENT_QUOTES = new Set(["USDT", "USDC", "FDUSD", "BUSD", "USD"]);
+const KNOWN_QUOTES = ["USDT", "USDC", "FDUSD", "BUSD", "USD", "BTC", "ETH", "BNB", "EUR", "TRY"] as const;
 
 export function normalizeSymbol(input: string): string {
   return input.trim().toUpperCase();
@@ -245,6 +235,16 @@ export async function fetchOpenOrders(base: string): Promise<OpenOrder[]> {
   return parseJSON<OpenOrder[]>(res);
 }
 
+export async function ensureSimulatedSymbol(base: string, symbol: string): Promise<void> {
+  const apiBase = normalizeApiBase(base);
+  const safeSymbol = encodeURIComponent(normalizeSymbol(symbol));
+  const res = await fetch(`${apiBase}/v1/admin/symbols/${safeSymbol}/ensure`, {
+    method: "POST",
+    headers: authHeaders()
+  });
+  await parseJSON<Record<string, unknown>>(res);
+}
+
 export async function fetchTrades(base: string, symbol: string, limit = 50): Promise<Trade[]> {
   const apiBase = normalizeApiBase(base);
   const safeSymbol = encodeURIComponent(normalizeSymbol(symbol));
@@ -298,16 +298,36 @@ export async function fetchCandles(
   return parseJSON<Candle[]>(res);
 }
 
-export async function renderChart(base: string, payload: ChartRenderRequest): Promise<ChartRenderResponse> {
-  const apiBase = normalizeApiBase(base);
-  const res = await fetch(`${apiBase}/v1/charts/render`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({
-      ...payload,
-      symbol: normalizeSymbol(payload.symbol),
-      timeframe: payload.timeframe.trim().toLowerCase(),
-    }),
-  });
-  return parseJSON<ChartRenderResponse>(res);
+export async function searchPairsByAPI(query: string, fallbackPairs: readonly string[] = [], limit = 20): Promise<string[]> {
+  const normalizedQuery = query.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const matchesQuery = (pair: string) =>
+    normalizedQuery.length === 0 || pair.replace(/[^A-Z0-9]/g, "").includes(normalizedQuery);
+  const fallbackMatches = fallbackPairs
+    .map((pair) => normalizeSymbol(pair))
+    .filter((pair) => matchesQuery(pair))
+    .slice(0, limit);
+
+  try {
+    const res = await fetch("https://api.binance.com/api/v3/exchangeInfo");
+    const body = await parseJSON<{ symbols?: BinanceExchangeSymbol[] }>(res);
+    const remotePairs = (body.symbols ?? [])
+      .filter((item) => item.status === "TRADING" && (item.isSpotTradingAllowed ?? true))
+      .map((item) => {
+        for (const quote of KNOWN_QUOTES) {
+          if (item.symbol.endsWith(quote) && item.symbol.length > quote.length) {
+            const base = item.symbol.slice(0, item.symbol.length - quote.length);
+            const normalizedQuote = FIAT_EQUIVALENT_QUOTES.has(quote) ? "USD" : quote;
+            return `${base}-${normalizedQuote}`;
+          }
+        }
+        return null;
+      })
+      .filter((pair): pair is string => pair !== null)
+      .filter((pair) => matchesQuery(pair));
+
+    const merged = Array.from(new Set([...fallbackMatches, ...remotePairs]));
+    return merged.slice(0, limit);
+  } catch {
+    return fallbackMatches;
+  }
 }

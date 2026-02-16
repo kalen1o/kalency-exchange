@@ -9,8 +9,6 @@ Core services:
 - `market-sim` (Go): synthetic market tick generation.
 - `candle-aggregator` (Go): timeframe rollups for 1s, 5s, 1m, 5m, 1h.
 - `ledger-writer` (Go): stream consumer that writes append-only trade ledger to PostgreSQL.
-- `chart-render-gateway` (Node.js): chart render API and cache orchestration.
-- `chartgpu-sidecar` (Python): ChartGPU execution sidecar called by Node gateway.
 - `web` (Next.js): user-facing exchange UI.
 
 ## Runtime Data Flow
@@ -30,16 +28,14 @@ Core services:
 - Consistency: strict atomic consistency for execution and wallet updates.
 
 ## Chart Rendering Path
-- ChartGPU is used for rendering charts only.
-- `chart-render-gateway` receives chart requests and checks cache metadata.
-- On miss, gateway calls Python sidecar to render, stores artifacts in object storage, and records metadata in Redis.
-- UI fetches cached assets and refreshes according to TTL policies.
+- Web UI renders charts client-side from candle/trade data served by `gateway-api`.
+- Chart interactivity is handled in-browser; no server-side chart render service is required.
 
 ## Deployment Shape
 - Docker Compose profiles: `dev`, `loadtest`, `prodlike`.
-- Current dev compose (`docker/compose.yaml`) runs `redis`, `postgres`, `matching-engine`, `market-sim`, `candle-aggregator`, `ledger-writer`, `chart-render-gateway`, `chartgpu-sidecar`, `gateway-api`, and `web`.
+- Current dev compose (`docker/compose.yaml`) runs `redis`, `postgres`, `matching-engine`, `market-sim`, `candle-aggregator`, `ledger-writer`, `gateway-api`, and `web`.
 - Redis Cluster baseline: 6 masters + 6 replicas.
 - PostgreSQL for identity and audit ledger.
-- Object storage for archived data and chart artifacts.
+- Object storage for archived data.
 
 For endpoint and message contracts, see `docs/kalency-v1/02-api-and-contracts.md`.

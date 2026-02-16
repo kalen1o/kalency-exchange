@@ -25,7 +25,6 @@
 - Redis diagnostics (`INFO`, `SLOWLOG`, latency tools).
 - Stream consumer recovery and replay steps.
 - PostgreSQL outage protocol with backlog drain procedure.
-- Chart rendering degradation and cache fallback steps.
 
 ## Disaster Recovery Targets
 - RPO: 5 minutes.

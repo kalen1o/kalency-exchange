@@ -33,11 +33,9 @@ This file is the canonical source of public API, event channels, and message/typ
 
 ## Internal Service Interfaces
 
-### gRPC
+### Service Interfaces
 - `MatchingEngine.MatchOrder`
 - `MatchingEngine.CancelOrder`
-- `ChartRenderGateway.RenderChart`
-- `ChartRenderGateway.Health`
 
 ## Message and Type Definitions
 

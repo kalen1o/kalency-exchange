@@ -11,6 +11,7 @@ type fakeController struct {
 	running    bool
 	volatility float64
 	paused     map[string]bool
+	ensured    map[string]bool
 }
 
 func (f *fakeController) Start() error {
@@ -45,6 +46,14 @@ func (f *fakeController) ResumeSymbol(symbol string) error {
 		f.paused = map[string]bool{}
 	}
 	delete(f.paused, symbol)
+	return nil
+}
+
+func (f *fakeController) EnsureSymbol(symbol string) error {
+	if f.ensured == nil {
+		f.ensured = map[string]bool{}
+	}
+	f.ensured[symbol] = true
 	return nil
 }
 
@@ -130,5 +139,21 @@ func TestPauseResumeSymbolEndpoints(t *testing.T) {
 	}
 	if controller.paused["BTC-USD"] {
 		t.Fatal("expected BTC-USD resumed after resume endpoint")
+	}
+}
+
+func TestEnsureSymbolEndpoint(t *testing.T) {
+	controller := &fakeController{}
+	server := NewServer(controller)
+
+	ensureReq := httptest.NewRequest(http.MethodPost, "/v1/admin/symbols/SOL-USD/ensure", nil)
+	ensureRR := httptest.NewRecorder()
+	server.ServeHTTP(ensureRR, ensureReq)
+
+	if ensureRR.Code != http.StatusOK {
+		t.Fatalf("expected ensure status 200, got %d", ensureRR.Code)
+	}
+	if !controller.ensured["SOL-USD"] {
+		t.Fatal("expected SOL-USD ensured after ensure endpoint")
 	}
 }

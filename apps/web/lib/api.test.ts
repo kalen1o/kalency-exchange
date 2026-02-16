@@ -5,11 +5,12 @@ import {
   buildTradesWebSocketURL,
   buildTicksWebSocketURL,
   cancelOrder,
+  ensureSimulatedSymbol,
   fetchCandles,
+  searchPairsByAPI,
   fetchTrades,
   mapChartIntervalToBackendTimeframe,
   rangeFromPreset,
-  renderChart,
   summarizeTrades
 } from "./api";
 
@@ -89,33 +90,6 @@ describe("market data calls", () => {
     );
   });
 
-  it("calls chart render endpoint with JSON payload", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          cached: false,
-          cacheKey: "abc",
-          renderId: "rid-1",
-          artifactType: "image/svg+xml",
-          artifact: "<svg/>",
-          meta: { symbol: "BTC-USD", timeframe: "1m", width: 800, height: 450, theme: "light" }
-        }),
-        { status: 200 }
-      )
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
-    await renderChart("http://localhost:8080", { symbol: "BTC-USD", timeframe: "1m", width: 800, height: 450 });
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:8080/v1/charts/render",
-      expect.objectContaining({
-        method: "POST",
-        headers: expect.objectContaining({ "Content-Type": "application/json" })
-      })
-    );
-  });
-
   it("sends auth headers when fetching trades", async () => {
     process.env.NEXT_PUBLIC_API_KEY = "demo-key";
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify([]), { status: 200 }));
@@ -157,6 +131,68 @@ describe("market data calls", () => {
         headers: expect.objectContaining({ "X-API-Key": "demo-key" })
       })
     );
+  });
+
+  it("ensures simulator symbol via admin endpoint", async () => {
+    process.env.NEXT_PUBLIC_API_KEY = "demo-key";
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ symbol: "SOL-USD", ensured: true }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await ensureSimulatedSymbol("http://localhost:8080", "sol-usd");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8080/v1/admin/symbols/SOL-USD/ensure",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ "X-API-Key": "demo-key" })
+      })
+    );
+  });
+
+  it("searches pair options from API and preserves quote assets", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          symbols: [
+            { symbol: "BTCUSDT", status: "TRADING", isSpotTradingAllowed: true },
+            { symbol: "ETHBTC", status: "TRADING", isSpotTradingAllowed: true },
+            { symbol: "XRPUSDT", status: "BREAK" }
+          ]
+        }),
+        { status: 200 }
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await searchPairsByAPI("bt", ["BTC-USD", "ETH-USD", "BTC-ETH"]);
+
+    expect(fetchMock).toHaveBeenCalledWith("https://api.binance.com/api/v3/exchangeInfo");
+    expect(result).toContain("BTC-USD");
+    expect(result).toContain("ETH-BTC");
+    expect(result).toContain("BTC-ETH");
+    expect(result).not.toContain("XRP-USD");
+  });
+
+  it("returns remote pairs when query is empty", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          symbols: [
+            { symbol: "SOLUSDT", status: "TRADING", isSpotTradingAllowed: true },
+            { symbol: "ADABTC", status: "TRADING", isSpotTradingAllowed: true }
+          ]
+        }),
+        { status: 200 }
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await searchPairsByAPI("", ["BTC-USD"], 10);
+
+    expect(fetchMock).toHaveBeenCalledWith("https://api.binance.com/api/v3/exchangeInfo");
+    expect(result).toContain("BTC-USD");
+    expect(result).toContain("SOL-USD");
+    expect(result).toContain("ADA-BTC");
   });
 });
 

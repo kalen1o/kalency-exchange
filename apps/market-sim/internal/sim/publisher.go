@@ -94,6 +94,10 @@ func (p *Publisher) ResumeSymbol(symbol string) error {
 	return p.generator.ResumeSymbol(symbol)
 }
 
+func (p *Publisher) EnsureSymbol(symbol string) error {
+	return p.generator.EnsureSymbol(symbol)
+}
+
 func (p *Publisher) loop(stopCh <-chan struct{}, doneCh chan<- struct{}) {
 	defer close(doneCh)
 	ticker := time.NewTicker(p.interval)

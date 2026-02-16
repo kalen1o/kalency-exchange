@@ -63,6 +63,13 @@ func (h *HTTPClient) ResumeSymbol(symbol string) (map[string]any, error) {
 	return out, err
 }
 
+func (h *HTTPClient) EnsureSymbol(symbol string) (map[string]any, error) {
+	var out map[string]any
+	path := fmt.Sprintf("/v1/admin/symbols/%s/ensure", url.PathEscape(strings.TrimSpace(symbol)))
+	err := h.doJSON(http.MethodPost, path, nil, &out)
+	return out, err
+}
+
 func (h *HTTPClient) doJSON(method, path string, body any, out any) error {
 	var bodyReader io.Reader
 	if body != nil {

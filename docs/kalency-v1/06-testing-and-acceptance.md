@@ -15,7 +15,6 @@ Kalency v1 requires both correctness and sustained-performance validation.
 - REST request/response validation for all trading and market routes.
 - WebSocket channel subscription and event ordering checks.
 - Candle aggregation correctness for 1s, 5s, 1m, 5m, 1h.
-- Chart render cache hit/miss behavior and fallback logic.
 
 ## Failure-Mode Scenarios
 - PostgreSQL outage while matching continues.

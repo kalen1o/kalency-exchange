@@ -3,7 +3,7 @@
 ## Data Roles
 - Redis Cluster is the hot-path execution store for matching, wallet state, live reads, and stream transport.
 - PostgreSQL stores identity metadata and append-only audit ledger records.
-- Object storage retains archives older than the Redis hot window and chart assets.
+- Object storage retains archives older than the Redis hot window.
 
 ## Redis Keyspace Convention
 All keys are prefixed with `v1:`.
@@ -28,7 +28,6 @@ All keys are prefixed with `v1:`.
 
 ### Control and Rate Limits
 - `v1:ratelimit:{apiKey}:{window}` counters
-- `v1:chart:meta:{hash}` chart metadata pointers
 
 ## Redis Consistency Model
 - Matching engine performs atomic wallet/order updates and event emission.

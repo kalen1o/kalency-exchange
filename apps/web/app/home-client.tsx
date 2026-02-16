@@ -1,21 +1,22 @@
 "use client";
 
-import { FormEvent, useCallback, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import React from "react";
 import {
   BINANCE_CHART_INTERVALS,
   cancelOrder,
   ChartInterval,
   ChartRangePreset,
+  ensureSimulatedSymbol,
+  searchPairsByAPI,
   mapChartIntervalToBackendTimeframe,
   OrderType,
   placeOrder,
   Side,
   summarizeTrades
 } from "@/lib/api";
-import { formatLocaleTime } from "@/lib/datetime";
 import { formatFloatPrice } from "@/lib/price";
-import { TradingViewBar, TradingViewHover } from "@/components/market/tradingview-chart";
+import { ChartBarStyle, TradingViewBar, TradingViewHover } from "@/components/market/tradingview-chart";
 import { ChartPanel } from "@/components/market/chart-panel";
 import { ExchangeHeader, type HeaderPanelTab } from "@/components/market/exchange-header";
 import { PairsSidebar } from "@/components/market/pairs-sidebar";
@@ -27,15 +28,19 @@ import { useSeedLiveBarFromCandles } from "@/hooks/useSeedLiveBarFromCandles";
 import { useTicksWebSocket } from "@/hooks/useTicksWebSocket";
 import { useToast } from "@/hooks/use-toast";
 import { useMarketUrlState } from "@/hooks/useMarketUrlState";
+import { useBeforeUnload } from "@/hooks/useBeforeUnload";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8080";
 const DEFAULT_USER = process.env.NEXT_PUBLIC_DEFAULT_USER ?? "demo-user";
 const RANGE_PRESETS: ChartRangePreset[] = ["15m", "1h", "4h", "24h"];
-const PAIR_OPTIONS = ["BTC-USD", "ETH-USD"] as const;
+const PAIR_OPTIONS = ["BTC-USD", "ETH-USD", "BTC-ETH"] as const;
+const BAR_STYLE_OPTIONS: ChartBarStyle[] = ["candles", "bars", "line", "line-area"];
+const INIT_SIMULATION_PAIR_LIMIT = 30;
 
 export default function HomeClient() {
   const { toast } = useToast();
   const [userId, setUserId] = useState(DEFAULT_USER);
+  const [availablePairs, setAvailablePairs] = useState<string[]>([...PAIR_OPTIONS]);
   const market = useMarketUrlState({
     pairOptions: PAIR_OPTIONS,
     timeframeOptions: BINANCE_CHART_INTERVALS as ChartInterval[],
@@ -52,11 +57,14 @@ export default function HomeClient() {
   const [busy, setBusy] = useState(false);
   const [cancelOrderID, setCancelOrderID] = useState<string | null>(null);
   const [liveConnected, setLiveConnected] = useState(false);
+  const [showVolume, setShowVolume] = useState(true);
+  const [barStyle, setBarStyle] = useState<ChartBarStyle>("candles");
 
   const [hoveredBar, setHoveredBar] = useState<TradingViewHover | null>(null);
   const [liveBar, setLiveBar] = useState<TradingViewBar | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<UserPanelTab>("order");
+  const didWarmupSimulationRef = useRef(false);
 
   const backendTimeframe = useMemo(() => mapChartIntervalToBackendTimeframe(timeframe), [timeframe]);
   const { orders, trades, candles, refresh } = useMarketPolling({
@@ -117,7 +125,7 @@ export default function HomeClient() {
         high: hoveredBar.high,
         low: hoveredBar.low,
         close: hoveredBar.close,
-        volume: hoveredBar.volume ?? 0
+        volume: hoveredBar.volume ?? null
       }
     : liveBar
       ? {
@@ -135,8 +143,8 @@ export default function HomeClient() {
     activeCandle && activeCandle.open !== 0 ? ((activeCandle.close - activeCandle.open) / activeCandle.open) * 100 : null;
   const headerLivePrice = tradeSummary.lastPrice ?? liveBar?.close ?? liveChartPrice;
   const chartHeaderPriceText = hoveredBar
-    ? `Hover: ${formatPrice(hoveredBar.close)} @ ${formatLocaleTime(hoveredBar.timeMs)}`
-    : `Live: ${formatPrice(headerLivePrice)}`;
+    ? `${formatPrice(hoveredBar.close)}`
+    : `${formatPrice(headerLivePrice)}`;
   const titleChangePct = useMemo(() => {
     const open = liveBar?.open ?? latestCandle?.open ?? null;
     const close = liveBar?.close ?? latestCandle?.close ?? null;
@@ -148,10 +156,29 @@ export default function HomeClient() {
   const onChartHover = useCallback((hover: TradingViewHover | null) => {
     setHoveredBar(hover);
   }, []);
+  const mergeAvailablePairs = useCallback((nextPairs: readonly string[]) => {
+    setAvailablePairs((prev) => {
+      const merged = new Set(prev.map((pair) => pair.toUpperCase()));
+      for (const pair of nextPairs) {
+        const normalized = String(pair).trim().toUpperCase();
+        if (normalized) merged.add(normalized);
+      }
+      return Array.from(merged);
+    });
+  }, []);
+  const onPairSearch = useCallback(
+    async (query: string) => {
+      const result = await searchPairsByAPI(query, availablePairs);
+      mergeAvailablePairs(result);
+      return result;
+    },
+    [availablePairs, mergeAvailablePairs]
+  );
   const openUserPanel = useCallback((tab: HeaderPanelTab) => {
     setPanelTab(tab);
     setPanelOpen(true);
   }, []);
+  useBeforeUnload(true);
 
   useMarketDocumentTitle({
     symbol,
@@ -165,18 +192,10 @@ export default function HomeClient() {
       : liveCandleChange >= 0
         ? "text-emerald-400"
         : "text-rose-400";
-  const liveChangeText =
+  const liveChangePercentText =
     liveCandleChange === null || Number.isNaN(liveCandleChange)
-      ? "Change: -"
-      : `Change: ${formatSignedPrice(liveCandleChange)} (${formatSignedPercent(liveCandleChangePct)})`;
-
-  function formatSignedPrice(value: number | null | undefined): string {
-    if (value === null || value === undefined || Number.isNaN(value)) {
-      return "-";
-    }
-    const sign = value > 0 ? "+" : value < 0 ? "-" : "";
-    return `${sign}${formatPrice(Math.abs(value))}`;
-  }
+      ? "-"
+      : formatSignedPercent(liveCandleChangePct);
 
   function formatSignedPercent(value: number | null | undefined): string {
     if (value === null || value === undefined || Number.isNaN(value)) {
@@ -186,6 +205,17 @@ export default function HomeClient() {
     return `${sign}${Math.abs(value).toFixed(2)}%`;
   }
 
+  function formatVolume(value: number | null | undefined): string {
+    if (value === null || value === undefined || Number.isNaN(value)) {
+      return "-";
+    }
+    const locale =
+      typeof navigator === "undefined"
+        ? "en-US"
+        : (navigator.languages?.[0] || navigator.language || "en-US").trim() || "en-US";
+    return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(value);
+  }
+
   function clearChartSurfaceHover() {
     setHoveredBar(null);
   }
@@ -193,6 +223,28 @@ export default function HomeClient() {
   useSeedLiveBarFromCandles(sortedCandles, setLiveBar);
   useTicksWebSocket({ apiBase: API_BASE, symbol, timeframe, latestCandle, setLiveConnected, setLiveBar });
   useResetOnChange(clearChartSurfaceHover, [symbol, timeframe, rangePreset]);
+  useEffect(() => {
+    mergeAvailablePairs([symbol]);
+  }, [symbol, mergeAvailablePairs]);
+  useEffect(() => {
+    void ensureSimulatedSymbol(API_BASE, symbol).catch(() => undefined);
+  }, [symbol]);
+  useEffect(() => {
+    if (didWarmupSimulationRef.current) return;
+    didWarmupSimulationRef.current = true;
+
+    let cancelled = false;
+    void (async () => {
+      const discoveredPairs = await searchPairsByAPI("", PAIR_OPTIONS, INIT_SIMULATION_PAIR_LIMIT);
+      if (cancelled) return;
+      mergeAvailablePairs(discoveredPairs);
+      await Promise.allSettled(discoveredPairs.map((pair) => ensureSimulatedSymbol(API_BASE, pair)));
+    })().catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mergeAvailablePairs]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -233,19 +285,27 @@ export default function HomeClient() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-[1900px] flex-col bg-[#0B0E11]">
+    <main className="mx-auto flex h-screen max-h-screen max-w-[1900px] flex-col overflow-hidden bg-[#0B0E11]">
       <ExchangeHeader
         symbol={symbol}
         timeframeOptions={BINANCE_CHART_INTERVALS}
         timeframe={timeframe}
         onTimeframeChange={(value) => market.setTimeframe(value as ChartInterval)}
+        pairOptions={availablePairs}
+        onPairSelect={market.setPair}
+        onPairSearch={onPairSearch}
+        barStyleOptions={BAR_STYLE_OPTIONS}
+        barStyle={barStyle}
+        onBarStyleChange={setBarStyle}
+        showVolume={showVolume}
+        onToggleVolume={setShowVolume}
         userId={userId}
         onOpenPanel={openUserPanel}
       />
 
       <section
         data-testid="workspace-grid"
-        className="grid flex-1 min-h-0 gap-0 lg:grid-cols-[minmax(0,1fr)_260px] lg:divide-x lg:divide-border/70"
+        className="grid flex-1 min-h-0 overflow-hidden gap-0 lg:grid-cols-[minmax(0,1fr)_260px] lg:divide-x lg:divide-border/70"
       >
         <ChartPanel
           symbol={symbol}
@@ -255,26 +315,43 @@ export default function HomeClient() {
           onHover={onChartHover}
           onMouseLeave={clearChartSurfaceHover}
           chartHeaderPriceText={chartHeaderPriceText}
-          liveChangeText={liveChangeText}
+          changePercentText={liveChangePercentText}
           liveChangeToneClass={liveChangeToneClass}
-          openText={`Open: ${formatPrice(activeCandle?.open)}`}
-          closeText={`Close: ${formatPrice(activeCandle?.close)}`}
+          openText={`O: ${formatPrice(activeCandle?.open)}`}
+          closeText={`C: ${formatPrice(activeCandle?.close)}`}
+          highText={`H: ${formatPrice(activeCandle?.high)}`}
+          lowText={`L: ${formatPrice(activeCandle?.low)}`}
+          volumeText={`V: ${formatVolume(activeCandle?.volume)}`}
+          showVolume={showVolume}
+          barStyle={barStyle}
           initialBarSpacing={market.initialView.barSpacing}
           initialScrollPosition={market.initialView.scrollPosition}
+          initialPriceFrom={market.initialView.priceFrom}
+          initialPriceTo={market.initialView.priceTo}
           onViewChange={(view) => {
             const round = (value: number) => Math.round(value * 100) / 100;
+            const roundPrice = (value: number | null) => (value === null ? null : Math.round(value * 1000000) / 1000000);
             const nextBarSpacing = round(view.barSpacing);
             const nextScrollPosition = round(view.scrollPosition);
+            const nextPriceFrom = roundPrice(view.priceFrom);
+            const nextPriceTo = roundPrice(view.priceTo);
             if (
               Math.abs(market.view.barSpacing - nextBarSpacing) < 0.01 &&
-              Math.abs(market.view.scrollPosition - nextScrollPosition) < 0.01
+              Math.abs(market.view.scrollPosition - nextScrollPosition) < 0.01 &&
+              market.view.priceFrom === nextPriceFrom &&
+              market.view.priceTo === nextPriceTo
             ) {
               return;
             }
-            market.setView({ barSpacing: nextBarSpacing, scrollPosition: nextScrollPosition });
+            market.setView({
+              barSpacing: nextBarSpacing,
+              scrollPosition: nextScrollPosition,
+              priceFrom: nextPriceFrom,
+              priceTo: nextPriceTo
+            });
           }}
         />
-        <PairsSidebar pairs={PAIR_OPTIONS} selected={symbol} onSelect={market.setPair} />
+        <PairsSidebar pairs={availablePairs} selected={symbol} onSelect={market.setPair} />
       </section>
 
       <UserPanelDialog

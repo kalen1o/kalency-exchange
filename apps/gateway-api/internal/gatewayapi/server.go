@@ -27,10 +27,6 @@ type CandleService interface {
 	ListCandles(symbol, timeframe string, from, to time.Time) ([]contracts.Candle, error)
 }
 
-type ChartService interface {
-	RenderChart(req contracts.ChartRenderRequest) (contracts.ChartRenderResponse, error)
-}
-
 type TickSource interface {
 	Read(ctx context.Context, lastID string, count int, block time.Duration) ([]tickstream.Tick, string, error)
 }
@@ -41,13 +37,13 @@ type AdminService interface {
 	SetVolatility(volatility float64) (map[string]any, error)
 	PauseSymbol(symbol string) (map[string]any, error)
 	ResumeSymbol(symbol string) (map[string]any, error)
+	EnsureSymbol(symbol string) (map[string]any, error)
 }
 
 type Config struct {
 	JWTSecret     string
 	APIKeys       map[string]string
 	CandleService CandleService
-	ChartService  ChartService
 	AdminService  AdminService
 	TickSource    TickSource
 }
@@ -73,7 +69,6 @@ func NewServer(cfg Config, trading TradingService) *fiber.App {
 		secret = "dev-secret"
 	}
 	candleService := cfg.CandleService
-	chartService := cfg.ChartService
 	adminService := cfg.AdminService
 	tickSource := cfg.TickSource
 
@@ -232,6 +227,21 @@ func NewServer(cfg Config, trading TradingService) *fiber.App {
 		return c.JSON(out)
 	})
 
+	protected.Post("/admin/symbols/:symbol/ensure", func(c *fiber.Ctx) error {
+		if adminService == nil {
+			return fiber.NewError(fiber.StatusServiceUnavailable, "admin service unavailable")
+		}
+		symbol := strings.TrimSpace(c.Params("symbol"))
+		if symbol == "" {
+			return fiber.NewError(fiber.StatusBadRequest, "symbol is required")
+		}
+		out, err := adminService.EnsureSymbol(symbol)
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+		return c.JSON(out)
+	})
+
 	app.Get("/v1/markets/:symbol/trades", func(c *fiber.Ctx) error {
 		symbol := strings.TrimSpace(c.Params("symbol"))
 		if symbol == "" {
@@ -295,31 +305,6 @@ func NewServer(cfg Config, trading TradingService) *fiber.App {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 		return c.JSON(candles)
-	})
-
-	app.Post("/v1/charts/render", func(c *fiber.Ctx) error {
-		if chartService == nil {
-			return fiber.NewError(fiber.StatusServiceUnavailable, "chart service unavailable")
-		}
-
-		var req contracts.ChartRenderRequest
-		if err := c.BodyParser(&req); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "invalid JSON body")
-		}
-		req.Symbol = strings.TrimSpace(req.Symbol)
-		req.Timeframe = normalizeTimeframe(req.Timeframe)
-		if req.Symbol == "" {
-			return fiber.NewError(fiber.StatusBadRequest, "symbol is required")
-		}
-		if !isSupportedTimeframe(req.Timeframe) {
-			return fiber.NewError(fiber.StatusBadRequest, "unsupported timeframe")
-		}
-
-		rendered, err := chartService.RenderChart(req)
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-		return c.JSON(rendered)
 	})
 
 	app.Get("/ws/trades/:symbol", websocket.New(func(conn *websocket.Conn) {

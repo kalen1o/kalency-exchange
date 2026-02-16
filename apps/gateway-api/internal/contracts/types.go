@@ -102,22 +102,3 @@ type Candle struct {
 	Close       float64   `json:"close"`
 	Volume      float64   `json:"volume"`
 }
-
-type ChartRenderRequest struct {
-	Symbol    string `json:"symbol"`
-	Timeframe string `json:"timeframe"`
-	From      string `json:"from,omitempty"`
-	To        string `json:"to,omitempty"`
-	Width     int    `json:"width,omitempty"`
-	Height    int    `json:"height,omitempty"`
-	Theme     string `json:"theme,omitempty"`
-}
-
-type ChartRenderResponse struct {
-	Cached       bool               `json:"cached"`
-	CacheKey     string             `json:"cacheKey"`
-	RenderID     string             `json:"renderId"`
-	ArtifactType string             `json:"artifactType"`
-	Artifact     string             `json:"artifact"`
-	Meta         ChartRenderRequest `json:"meta"`
-}

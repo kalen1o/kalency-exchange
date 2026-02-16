@@ -37,6 +37,7 @@ describe("renderCandlestickSVG", () => {
     expect(svg).toContain("timeframe 1m");
     expect(svg).toContain("candle-body");
     expect(svg).toContain("candle-wick");
+    expect(svg).toContain("volume-bar");
     expect(svg).not.toContain("<polyline");
   });
 });

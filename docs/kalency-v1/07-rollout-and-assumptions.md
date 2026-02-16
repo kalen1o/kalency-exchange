@@ -7,10 +7,9 @@
 4. Implement gateway REST/WS and risk controls.
 5. Implement market simulator and candle aggregation pipeline.
 6. Implement async ledger writer from Redis Streams to PostgreSQL.
-7. Implement chart gateway (Node.js) and ChartGPU sidecar integration.
-8. Implement Next.js web UI.
-9. Add observability stack and runbooks.
-10. Tune and validate load gate.
+7. Implement Next.js web UI.
+8. Add observability stack and runbooks.
+9. Tune and validate load gate.
 
 ## Deployment Profiles
 - `dev`: local development profile.
@@ -29,7 +28,6 @@
 - Order actions: place, partial fill, cancel.
 - Timeframes: 1s, 5s, 1m, 5m, 1h.
 - Data retention: 30 days hot in Redis, older data archived to object storage.
-- ChartGPU usage: rendering only.
 
 ## Data and Consistency Defaults
 - Redis is the hot-path source for execution state.
@@ -45,7 +43,7 @@
 - DR objectives: RPO 5 minutes, RTO 15 minutes.
 
 ## Assumptions
-1. This split is docs-only and does not change runtime APIs.
+1. `docs/kalency-v1` is the current reference set and should stay aligned with active runtime APIs.
 2. Existing Redis learning docs remain in `docs/learn-redis/` and are unchanged.
 3. Plan version is fixed at `Kalency v1.0 (2026-02-14)` until an explicit revision.
 4. New ambiguities must be tracked as `TODO` notes instead of silently changing scope.

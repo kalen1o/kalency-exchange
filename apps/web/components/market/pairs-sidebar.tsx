@@ -11,7 +11,7 @@ export type PairsSidebarProps = {
 
 export function PairsSidebar({ pairs, selected, onSelect }: PairsSidebarProps) {
   return (
-    <aside data-testid="pairs-sidebar" className="h-full overflow-auto p-3">
+    <aside data-testid="pairs-sidebar" className="h-full min-h-0 overflow-y-auto p-3">
       <div className="flex items-center justify-between px-1 py-1.5">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pairs</p>
         <p className="font-mono text-[11px] text-muted-foreground">{pairs.length}</p>

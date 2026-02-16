@@ -8,8 +8,6 @@ This directory starts the Kalency application implementation from the docs plan.
 - Market simulator service: `apps/market-sim/cmd/market-sim`
 - Candle aggregator service: `apps/candle-aggregator/cmd/candle-aggregator`
 - Ledger writer service: `apps/ledger-writer/cmd/ledger-writer`
-- Chart render gateway: `apps/chart-render-gateway/src/server.js`
-- ChartGPU sidecar: `apps/chartgpu-sidecar/server.py`
 - Web frontend: `apps/web`
 
 ## Implemented so far
@@ -45,16 +43,6 @@ This directory starts the Kalency application implementation from the docs plan.
   - async writes to PostgreSQL `trade_ledger`,
   - idempotent insert by `trade_id`,
   - `GET /healthz`.
-- Chart render gateway with:
-  - `POST /v1/charts/render`,
-  - cache-key based in-memory metadata cache,
-  - sidecar forwarding to ChartGPU render endpoint,
-  - `GET /healthz`.
-- ChartGPU sidecar with:
-  - `POST /render` SVG render endpoint,
-  - deterministic `renderId` hashing,
-  - payload validation and size defaults,
-  - `GET /healthz`.
 - Gateway API endpoints with JWT/API-key auth:
   - `POST /v1/auth/token`
   - `POST /v1/orders`
@@ -69,7 +57,6 @@ This directory starts the Kalency application implementation from the docs plan.
   - `GET /v1/markets/{symbol}/book`
   - `GET /v1/markets/{symbol}/trades`
   - `GET /v1/markets/{symbol}/candles?tf=1s|5s|1m|5m|1h&from=&to=`
-  - `POST /v1/charts/render`
   - `GET /ws/trades/{symbol}`
   - `GET /healthz`
 - Next.js web frontend (`apps/web`) with:
@@ -77,7 +64,7 @@ This directory starts the Kalency application implementation from the docs plan.
   - open orders view,
   - recent trades view,
   - candles view (`/v1/markets/{symbol}/candles`),
-  - chart rendering view (`/v1/charts/render` passthrough).
+  - client-side interactive chart rendering.
 - Unit tests for matching and HTTP endpoints.
 - Redis store tests using `miniredis`.
 
@@ -105,16 +92,6 @@ go test ./...
 ```bash
 cd apps/ledger-writer
 go test ./...
-```
-
-```bash
-cd apps/chart-render-gateway
-npm test
-```
-
-```bash
-cd apps/chartgpu-sidecar
-PYTHONPATH=. python3 -m unittest discover -s tests -p 'test_*.py'
 ```
 
 ```bash
@@ -152,22 +129,10 @@ cd apps/ledger-writer
 REDIS_ADDR=127.0.0.1:6379 PORT=8084 LEDGER_STREAM_KEY=kalency:v1:stream:executions POSTGRES_DSN='postgres://kalency:kalency@127.0.0.1:5432/kalency?sslmode=disable' go run ./cmd/ledger-writer
 ```
 
-## Run chartgpu-sidecar
-```bash
-cd apps/chartgpu-sidecar
-PORT=8086 python3 server.py
-```
-
-## Run chart-render-gateway
-```bash
-cd apps/chart-render-gateway
-PORT=8085 CHARTGPU_SIDECAR_URL=http://127.0.0.1:8086/render npm start
-```
-
 ## Run gateway-api against matching-engine
 ```bash
 cd apps/gateway-api
-MATCHING_ENGINE_URL=http://127.0.0.1:8081 MARKET_SIM_URL=http://127.0.0.1:8082 CANDLE_REDIS_ADDR=127.0.0.1:6379 CANDLE_KEY_PREFIX=v1 CHART_RENDER_GATEWAY_URL=http://127.0.0.1:8085 JWT_SECRET=dev-secret API_KEYS=demo-key:demo-user PORT=8080 go run ./cmd/gateway-api
+MATCHING_ENGINE_URL=http://127.0.0.1:8081 MARKET_SIM_URL=http://127.0.0.1:8082 CANDLE_REDIS_ADDR=127.0.0.1:6379 CANDLE_KEY_PREFIX=v1 JWT_SECRET=dev-secret API_KEYS=demo-key:demo-user PORT=8080 go run ./cmd/gateway-api
 ```
 
 ## Run Docker Compose dev profile

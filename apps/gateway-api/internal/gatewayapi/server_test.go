@@ -136,25 +136,13 @@ func (f *fakeCandleService) ListCandles(symbol, timeframe string, from, to time.
 	return f.candles, nil
 }
 
-type fakeChartService struct {
-	lastRequest contracts.ChartRenderRequest
-	response    contracts.ChartRenderResponse
-}
-
-func (f *fakeChartService) RenderChart(req contracts.ChartRenderRequest) (contracts.ChartRenderResponse, error) {
-	f.lastRequest = req
-	if f.response.RenderID == "" {
-		f.response = contracts.ChartRenderResponse{RenderID: "rid-1", ArtifactType: "image/svg+xml", Artifact: "<svg/>"}
-	}
-	return f.response, nil
-}
-
 type fakeAdminService struct {
 	startCalled       bool
 	stopCalled        bool
 	lastVolatility    float64
 	lastPausedSymbol  string
 	lastResumedSymbol string
+	lastEnsuredSymbol string
 }
 
 func (f *fakeAdminService) StartSimulator() (map[string]any, error) {
@@ -182,6 +170,11 @@ func (f *fakeAdminService) ResumeSymbol(symbol string) (map[string]any, error) {
 	return map[string]any{"symbol": symbol, "paused": false}, nil
 }
 
+func (f *fakeAdminService) EnsureSymbol(symbol string) (map[string]any, error) {
+	f.lastEnsuredSymbol = symbol
+	return map[string]any{"symbol": symbol, "ensured": true}, nil
+}
+
 func TestCandlesEndpoint(t *testing.T) {
 	tf := time.Date(2026, 2, 15, 0, 1, 0, 0, time.UTC)
 	candleSvc := &fakeCandleService{candles: []contracts.Candle{{Symbol: "BTC-USD", Timeframe: "1m", BucketStart: tf, Open: 100, High: 101, Low: 99, Close: 100.5, Volume: 10}}}
@@ -203,27 +196,6 @@ func TestCandlesEndpoint(t *testing.T) {
 	}
 	if len(candles) != 1 {
 		t.Fatalf("expected 1 candle, got %d", len(candles))
-	}
-}
-
-func TestChartRenderEndpoint(t *testing.T) {
-	chartSvc := &fakeChartService{}
-	app := NewServer(Config{JWTSecret: "secret", APIKeys: map[string]string{"demo-key": "u1"}, ChartService: chartSvc}, &fakeTradingService{walletByUser: map[string]contracts.Wallet{}})
-
-	body := []byte(`{"symbol":"BTC-USD","timeframe":"1m","width":800,"height":450}`)
-	req, _ := http.NewRequest(http.MethodPost, "/v1/charts/render", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-API-Key", "demo-key")
-
-	res, err := app.Test(req)
-	if err != nil {
-		t.Fatalf("chart request failed: %v", err)
-	}
-	if res.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200, got %d", res.StatusCode)
-	}
-	if chartSvc.lastRequest.Symbol != "BTC-USD" {
-		t.Fatalf("expected BTC-USD symbol, got %s", chartSvc.lastRequest.Symbol)
 	}
 }
 
@@ -334,5 +306,27 @@ func TestAdminSymbolPauseResumeEndpoints(t *testing.T) {
 	}
 	if adminSvc.lastResumedSymbol != "BTC-USD" {
 		t.Fatalf("expected resumed symbol BTC-USD, got %s", adminSvc.lastResumedSymbol)
+	}
+}
+
+func TestAdminSymbolEnsureEndpoint(t *testing.T) {
+	adminSvc := &fakeAdminService{}
+	app := NewServer(Config{
+		JWTSecret:    "secret",
+		APIKeys:      map[string]string{"demo-key": "u1"},
+		AdminService: adminSvc,
+	}, &fakeTradingService{walletByUser: map[string]contracts.Wallet{}})
+
+	ensureReq, _ := http.NewRequest(http.MethodPost, "/v1/admin/symbols/SOL-USD/ensure", nil)
+	ensureReq.Header.Set("X-API-Key", "demo-key")
+	ensureRes, err := app.Test(ensureReq)
+	if err != nil {
+		t.Fatalf("ensure request failed: %v", err)
+	}
+	if ensureRes.StatusCode != http.StatusOK {
+		t.Fatalf("expected ensure 200, got %d", ensureRes.StatusCode)
+	}
+	if adminSvc.lastEnsuredSymbol != "SOL-USD" {
+		t.Fatalf("expected ensured symbol SOL-USD, got %s", adminSvc.lastEnsuredSymbol)
 	}
 }

@@ -108,3 +108,67 @@ func TestGeneratorPauseResumeSymbol(t *testing.T) {
 		t.Fatalf("expected 2 ticks after resume, got %d", len(ticks))
 	}
 }
+
+func TestGeneratorEnsureSymbolAddsAndUnpauses(t *testing.T) {
+	rng := &fixedRandom{values: []float64{0.5, 0.5}}
+	generator := NewGenerator([]string{"BTC-USD"}, 100, 0.01, rng)
+
+	if err := generator.EnsureSymbol("SOL-USD"); err != nil {
+		t.Fatalf("ensure symbol failed: %v", err)
+	}
+
+	ticks := generator.Next()
+	if len(ticks) != 2 {
+		t.Fatalf("expected 2 ticks after ensure, got %d", len(ticks))
+	}
+
+	if err := generator.PauseSymbol("SOL-USD"); err != nil {
+		t.Fatalf("pause symbol failed: %v", err)
+	}
+	if err := generator.EnsureSymbol("SOL-USD"); err != nil {
+		t.Fatalf("ensure existing symbol failed: %v", err)
+	}
+
+	ticks = generator.Next()
+	if len(ticks) != 2 {
+		t.Fatalf("expected ensured symbol to be unpaused, got %d ticks", len(ticks))
+	}
+}
+
+func TestGeneratorNextGeneratesRandomizedVolumeFromRaw(t *testing.T) {
+	rng := &fixedRandom{values: []float64{0.10, 0.90}}
+	generator := NewGenerator([]string{"BTC-USD", "ETH-USD"}, 100, 0.01, rng)
+
+	ticks := generator.Next()
+	if len(ticks) != 2 {
+		t.Fatalf("expected 2 ticks, got %d", len(ticks))
+	}
+
+	if ticks[0].Volume <= 0 {
+		t.Fatalf("expected positive volume for first tick, got %f", ticks[0].Volume)
+	}
+	if ticks[1].Volume <= 0 {
+		t.Fatalf("expected positive volume for second tick, got %f", ticks[1].Volume)
+	}
+	if ticks[0].Volume == ticks[1].Volume {
+		t.Fatalf("expected different volumes for different random inputs, got %f and %f", ticks[0].Volume, ticks[1].Volume)
+	}
+}
+
+func TestGeneratorUsesIndependentRandomSourcesForPriceAndVolume(t *testing.T) {
+	rng := &fixedRandom{values: []float64{0.5, 0.1, 0.5, 0.9}}
+	generator := NewGenerator([]string{"BTC-USD", "ETH-USD"}, 100, 0.01, rng)
+
+	ticks := generator.Next()
+	if len(ticks) != 2 {
+		t.Fatalf("expected 2 ticks, got %d", len(ticks))
+	}
+
+	if ticks[0].Delta != ticks[1].Delta {
+		t.Fatalf("expected equal deltas when price random values are equal, got %f and %f", ticks[0].Delta, ticks[1].Delta)
+	}
+
+	if ticks[0].Volume == ticks[1].Volume {
+		t.Fatalf("expected different volume values when volume random values differ, got %f and %f", ticks[0].Volume, ticks[1].Volume)
+	}
+}

@@ -29,7 +29,6 @@ Kalency v1 is accepted only if it sustains:
 ## Resource Planning Inputs
 - Timeframes served: `1s`, `5s`, `1m`, `5m`, `1h`.
 - 30-day hot data retention in Redis for high-speed queries.
-- Chart render path uses cache-first policy to avoid GPU bottlenecks on repeat requests.
 
 ## SLO Reporting
 Latency SLOs are tracked per endpoint and per processing stage:

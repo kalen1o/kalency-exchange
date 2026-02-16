@@ -77,8 +77,10 @@ func (g *Generator) Next() []Tick {
 		}
 
 		current := g.prices[symbol]
-		raw := g.random.Float64()
-		delta := g.priceDelta(raw)
+		priceRaw := g.random.Float64()
+		volumeRaw := g.random.Float64()
+		delta := g.priceDelta(priceRaw)
+		volume := g.volumeFromRaw(volumeRaw)
 		nextPrice := current * (1 + delta)
 		if nextPrice < 0.01 {
 			nextPrice = 0.01
@@ -88,6 +90,7 @@ func (g *Generator) Next() []Tick {
 			Symbol: symbol,
 			Price:  nextPrice,
 			Delta:  delta,
+			Volume: volume,
 			TS:     now,
 		})
 	}
@@ -123,6 +126,19 @@ func (g *Generator) priceDelta(raw float64) float64 {
 
 	magnitude := (raw - sellBias) / (1 - sellBias)
 	return magnitude * posMax
+}
+
+func (g *Generator) volumeFromRaw(raw float64) float64 {
+	// Keep generated volume in a realistic positive range while still varying each tick.
+	const minVolume = 0.5
+	const maxVolume = 3.0
+	if raw < 0 {
+		raw = 0
+	}
+	if raw > 1 {
+		raw = 1
+	}
+	return minVolume + raw*(maxVolume-minVolume)
 }
 
 func (g *Generator) SetVolatility(volatility float64) error {
@@ -178,6 +194,30 @@ func (g *Generator) ResumeSymbol(symbol string) error {
 		return errors.New("symbol not found")
 	}
 	delete(g.pausedSymbols, canonical)
+	return nil
+}
+
+func (g *Generator) EnsureSymbol(symbol string) error {
+	normalized := strings.ToUpper(strings.TrimSpace(symbol))
+	if normalized == "" {
+		return errors.New("symbol is required")
+	}
+
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	if canonical, ok := g.findSymbolLocked(normalized); ok {
+		delete(g.pausedSymbols, canonical)
+		return nil
+	}
+
+	initialPrice := 100.0
+	if len(g.symbols) > 0 {
+		initialPrice = g.prices[g.symbols[0]]
+	}
+	g.symbols = append(g.symbols, normalized)
+	g.prices[normalized] = initialPrice
+	delete(g.pausedSymbols, normalized)
 	return nil
 }
 

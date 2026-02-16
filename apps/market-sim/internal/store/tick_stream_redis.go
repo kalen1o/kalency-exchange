@@ -33,6 +33,7 @@ func (s *RedisTickStreamSink) PublishTick(ctx context.Context, tick sim.Tick) er
 			"symbol": tick.Symbol,
 			"price":  strconv.FormatFloat(tick.Price, 'f', -1, 64),
 			"delta":  strconv.FormatFloat(tick.Delta, 'f', -1, 64),
+			"volume": strconv.FormatFloat(tick.Volume, 'f', -1, 64),
 			"ts":     ts.Format(time.RFC3339Nano),
 		},
 	}).Result()

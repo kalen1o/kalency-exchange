@@ -9,7 +9,6 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"kalency/apps/gateway-api/internal/candleclient"
-	"kalency/apps/gateway-api/internal/chartclient"
 	"kalency/apps/gateway-api/internal/gatewayapi"
 	"kalency/apps/gateway-api/internal/marketsimclient"
 	"kalency/apps/gateway-api/internal/matchingclient"
@@ -38,7 +37,6 @@ func main() {
 	if tickStreamKey == "" {
 		tickStreamKey = "kalency:v1:stream:ticks"
 	}
-	chartRenderGatewayURL := strings.TrimSpace(os.Getenv("CHART_RENDER_GATEWAY_URL"))
 	marketSimURL := strings.TrimSpace(os.Getenv("MARKET_SIM_URL"))
 
 	jwtSecret := os.Getenv("JWT_SECRET")
@@ -50,11 +48,6 @@ func main() {
 	candleService, tickSource, closeCandleService := newRedisIntegrations(candleRedisAddr, candleKeyPrefix, tickStreamKey)
 	defer closeCandleService()
 
-	var chartService gatewayapi.ChartService
-	if chartRenderGatewayURL != "" {
-		chartService = chartclient.NewHTTPClient(chartRenderGatewayURL)
-	}
-
 	var adminService gatewayapi.AdminService
 	if marketSimURL != "" {
 		adminService = marketsimclient.NewHTTPClient(marketSimURL)
@@ -64,18 +57,16 @@ func main() {
 		JWTSecret:     jwtSecret,
 		APIKeys:       parseAPIKeys(os.Getenv("API_KEYS")),
 		CandleService: candleService,
-		ChartService:  chartService,
 		AdminService:  adminService,
 		TickSource:    tickSource,
 	}, tradingClient)
 
 	addr := ":" + port
 	log.Printf(
-		"gateway-api listening on %s (matching-engine=%s candles-enabled=%t chart-gateway=%q market-sim=%q)",
+		"gateway-api listening on %s (matching-engine=%s candles-enabled=%t market-sim=%q)",
 		addr,
 		matchingEngineURL,
 		candleService != nil,
-		chartRenderGatewayURL,
 		marketSimURL,
 	)
 	if err := apiServer.Listen(addr); err != nil {
