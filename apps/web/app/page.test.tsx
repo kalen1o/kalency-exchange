@@ -314,4 +314,16 @@ describe("Home trading workspace layout", () => {
 
     expect(screen.getByTestId("pairs-sidebar")).toHaveTextContent("SOL-USD");
   });
+
+  it("normalizes unknown pair query to BTC-USD", async () => {
+    render(<HomeClient />, {
+      wrapper: withNuqsTestingAdapter({
+        hasMemory: true,
+        searchParams: "?pair=GAS-BTC"
+      })
+    });
+
+    await screen.findByTestId("workspace-grid");
+    expect(screen.getByTestId("pairs-open-button")).toHaveTextContent("BTC-USD");
+  });
 });

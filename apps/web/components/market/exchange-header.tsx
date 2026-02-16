@@ -172,7 +172,7 @@ export function ExchangeHeader({
             data-testid="header-small-logo"
             src="/small-logo.png"
             alt="Kalency logo"
-            className="h-5 w-5 rounded-sm object-contain"
+            className="h-8 w-8 rounded-full object-cover"
           />
           <button
             type="button"

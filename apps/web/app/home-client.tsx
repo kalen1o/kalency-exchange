@@ -224,6 +224,14 @@ export default function HomeClient() {
   useTicksWebSocket({ apiBase: API_BASE, symbol, timeframe, latestCandle, setLiveConnected, setLiveBar });
   useResetOnChange(clearChartSurfaceHover, [symbol, timeframe, rangePreset]);
   useEffect(() => {
+    const rawPairQuery = new URLSearchParams(window.location.search).get("pair");
+    if (!rawPairQuery) return;
+    const normalized = rawPairQuery.toUpperCase();
+    const exists = availablePairs.some((pair) => pair.toUpperCase() === normalized);
+    if (exists) return;
+    market.setPair("BTC-USD");
+  }, [availablePairs, market]);
+  useEffect(() => {
     mergeAvailablePairs([symbol]);
   }, [symbol, mergeAvailablePairs]);
   useEffect(() => {

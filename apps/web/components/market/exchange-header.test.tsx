@@ -88,5 +88,7 @@ describe("ExchangeHeader", () => {
     const logos = screen.getAllByTestId("header-small-logo");
     expect(logos.length).toBeGreaterThan(0);
     expect(logos[0]).toHaveAttribute("src", "/small-logo.png");
+    expect(logos[0]).toHaveClass("rounded-full");
+    expect(logos[0]).toHaveClass("h-8", "w-8", "object-cover");
   });
 });
