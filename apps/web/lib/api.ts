@@ -51,8 +51,10 @@ export type Trade = {
   price: number;
   qty: number;
   makerOrderId?: string;
+  makerUserId?: string;
   makerUserID?: string;
   takerOrderId?: string;
+  takerUserId?: string;
   takerUserID?: string;
   ts: string;
 };

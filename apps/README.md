@@ -24,6 +24,7 @@ This directory starts the Kalency application implementation from the docs plan.
 - Optional Redis Streams trade-read path for market trade queries.
 - Market simulator service with:
   - synthetic tick generation for configured symbols,
+  - optional bot-driven execution mode (`SIM_MODE=bot-orders`) that submits orders into matching engine,
   - optional Redis Streams tick publishing (`kalency:v1:stream:ticks`),
   - admin controls:
     - `POST /v1/admin/sim/start`
@@ -114,7 +115,7 @@ REDIS_ADDR=127.0.0.1:6379 PORT=8081 go run ./cmd/matching-engine
 ## Run market-sim
 ```bash
 cd apps/market-sim
-REDIS_ADDR=127.0.0.1:6379 PORT=8082 SIM_START_ON_BOOT=true SIM_SELL_BIAS=0.65 go run ./cmd/market-sim
+REDIS_ADDR=127.0.0.1:6379 MATCHING_ENGINE_URL=http://127.0.0.1:8081 PORT=8082 SIM_MODE=bot-orders SIM_START_ON_BOOT=true SIM_SELL_BIAS=0.65 go run ./cmd/market-sim
 ```
 
 ## Run candle-aggregator

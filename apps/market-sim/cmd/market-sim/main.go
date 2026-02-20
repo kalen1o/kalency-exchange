@@ -17,8 +17,10 @@ import (
 
 func main() {
 	port := getEnv("PORT", "8082")
+	mode := getEnv("SIM_MODE", "bot-orders")
 	redisAddr := strings.TrimSpace(os.Getenv("REDIS_ADDR"))
 	streamKey := getEnv("SIM_STREAM_KEY", "kalency:v1:stream:ticks")
+	matchingEngineURL := getEnv("MATCHING_ENGINE_URL", "http://localhost:8081")
 	symbols := parseSymbols(getEnv("SIM_SYMBOLS", "BTC-USD,ETH-USD"))
 	initialPrice := getEnvFloat("SIM_INITIAL_PRICE", 100)
 	volatility := getEnvFloat("SIM_VOLATILITY", 0.005)
@@ -31,7 +33,7 @@ func main() {
 		log.Printf("invalid SIM_SELL_BIAS value; using default 0.65: %v", err)
 		_ = generator.SetSellBias(0.65)
 	}
-	sink, closeSink := newSink(redisAddr, streamKey)
+	sink, closeSink := newSink(mode, redisAddr, streamKey, matchingEngineURL)
 	defer closeSink()
 
 	publisher := sim.NewPublisher(generator, sink, time.Duration(intervalMS)*time.Millisecond)
@@ -44,13 +46,15 @@ func main() {
 	server := httpapi.NewServer(publisher)
 	addr := ":" + port
 	log.Printf(
-		"market-sim listening on %s (symbols=%v interval_ms=%d sell_bias=%.2f redis=%q stream=%q running=%t)",
+		"market-sim listening on %s (mode=%s symbols=%v interval_ms=%d sell_bias=%.2f redis=%q stream=%q matching=%q running=%t)",
 		addr,
+		mode,
 		symbols,
 		intervalMS,
 		sellBias,
 		redisAddr,
 		streamKey,
+		matchingEngineURL,
 		publisher.Running(),
 	)
 	if err := http.ListenAndServe(addr, server); err != nil {
@@ -58,7 +62,29 @@ func main() {
 	}
 }
 
-func newSink(redisAddr, streamKey string) (sim.TickSink, func()) {
+func newSink(mode, redisAddr, streamKey, matchingEngineURL string) (sim.TickSink, func()) {
+	mode = strings.ToLower(strings.TrimSpace(mode))
+
+	if mode == "bot-orders" {
+		orderSink := store.NewMatchingOrderSink(matchingEngineURL)
+		if redisAddr == "" {
+			log.Printf("bot-orders mode enabled (redis tick stream disabled)")
+			return orderSink, func() {}
+		}
+
+		redisSink, closeRedis := newRedisSink(redisAddr, streamKey)
+		log.Printf("bot-orders mode enabled (matching=%s)", matchingEngineURL)
+		return multiTickSink{orderSink, redisSink}, closeRedis
+	}
+
+	if mode != "ticks" {
+		log.Printf("unknown SIM_MODE=%q; using ticks mode", mode)
+	}
+
+	return newRedisSink(redisAddr, streamKey)
+}
+
+func newRedisSink(redisAddr, streamKey string) (sim.TickSink, func()) {
 	if redisAddr == "" {
 		log.Printf("redis sink disabled (REDIS_ADDR not set)")
 		return sim.NoopTickSink{}, func() {}
@@ -77,6 +103,20 @@ func newSink(redisAddr, streamKey string) (sim.TickSink, func()) {
 	return store.NewRedisTickStreamSink(client, streamKey), func() {
 		_ = client.Close()
 	}
+}
+
+type multiTickSink []sim.TickSink
+
+func (m multiTickSink) PublishTick(ctx context.Context, tick sim.Tick) error {
+	for _, sink := range m {
+		if sink == nil {
+			continue
+		}
+		if err := sink.PublishTick(ctx, tick); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func getEnv(name, fallback string) string {

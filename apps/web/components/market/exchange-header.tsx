@@ -118,6 +118,11 @@ export function ExchangeHeader({
   useEffect(() => {
     if (!pairsOpen) return;
     const trimmed = pairQuery.trim();
+    if (trimmed === "") {
+      setPairLoading(false);
+      setPairResults([...pairOptions]);
+      return;
+    }
     let active = true;
     const timer = window.setTimeout(async () => {
       setPairLoading(true);
@@ -308,6 +313,16 @@ export function ExchangeHeader({
 
       <div ref={userMenuRef} className="relative flex shrink-0 items-center border-l border-border/70 px-2">
         <Button
+          data-testid="header-trades-button"
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="mr-2 h-8 px-3 font-mono text-xs"
+          onClick={() => onOpenPanel("trades")}
+        >
+          Trades
+        </Button>
+        <Button
           data-testid="user-avatar"
           type="button"
           variant="ghost"
@@ -332,17 +347,6 @@ export function ExchangeHeader({
               }}
             >
               <span className="font-mono">Order Ticket</span>
-              <span className="text-xs text-muted-foreground">Enter</span>
-            </button>
-            <button
-              type="button"
-              className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-background/60"
-              onClick={() => {
-                setUserMenuOpen(false);
-                onOpenPanel("trades");
-              }}
-            >
-              <span className="font-mono">Recent Trades</span>
               <span className="text-xs text-muted-foreground">Enter</span>
             </button>
             <button

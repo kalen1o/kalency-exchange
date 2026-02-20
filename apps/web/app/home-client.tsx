@@ -384,7 +384,13 @@ export default function HomeClient() {
         onPriceChange={setPrice}
         busy={busy}
         onSubmit={onSubmit}
-        trades={trades.map((t) => ({ tradeId: t.tradeId, price: t.price, qty: t.qty }))}
+        trades={trades.map((t) => ({
+          tradeId: t.tradeId,
+          price: t.price,
+          qty: t.qty,
+          inUser: t.takerUserId ?? t.takerUserID ?? "-",
+          outUser: t.makerUserId ?? t.makerUserID ?? "-"
+        }))}
         tradeSummary={{ lastPrice: formatPrice(tradeSummary.lastPrice), totalQty: tradeSummary.totalQty }}
         orders={orders.map((o) => ({ orderId: o.orderId, side: o.side, symbol: o.symbol, remainingQty: o.remainingQty, qty: o.qty }))}
         cancelOrderID={cancelOrderID}

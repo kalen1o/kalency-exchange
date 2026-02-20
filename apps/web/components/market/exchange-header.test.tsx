@@ -1,14 +1,15 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ExchangeHeader } from "./exchange-header";
 
 describe("ExchangeHeader", () => {
   afterEach(() => {
+    cleanup();
     vi.useRealTimers();
   });
 
-  it("calls pair search when opening the search modal", async () => {
+  it("does not call pair search when opening the search modal", async () => {
     vi.useFakeTimers();
     const onPairSearch = vi.fn().mockResolvedValue(["BTC-USD", "ETH-USD"]);
 
@@ -31,10 +32,66 @@ describe("ExchangeHeader", () => {
       />
     );
 
-    fireEvent.click(screen.getByTestId("pairs-open-button"));
+    fireEvent.click(screen.getAllByTestId("pairs-open-button")[0]);
     await vi.advanceTimersByTimeAsync(260);
 
-    expect(onPairSearch).toHaveBeenCalledWith("");
+    expect(onPairSearch).not.toHaveBeenCalled();
+  });
+
+  it("calls pair search when user types in the search modal", async () => {
+    vi.useFakeTimers();
+    const onPairSearch = vi.fn().mockResolvedValue(["BTC-USD", "ETH-USD"]);
+
+    render(
+      <ExchangeHeader
+        symbol="BTC-USD"
+        timeframeOptions={["1m", "5m"]}
+        timeframe="1m"
+        onTimeframeChange={vi.fn()}
+        pairOptions={["BTC-USD", "ETH-USD"]}
+        onPairSelect={vi.fn()}
+        onPairSearch={onPairSearch}
+        barStyleOptions={["candles", "bars", "line", "line-area"]}
+        barStyle="candles"
+        onBarStyleChange={vi.fn()}
+        showVolume
+        onToggleVolume={vi.fn()}
+        userId="demo-user"
+        onOpenPanel={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getAllByTestId("pairs-open-button")[0]);
+    fireEvent.change(screen.getByTestId("pairs-search-input"), { target: { value: "btc" } });
+    await vi.advanceTimersByTimeAsync(260);
+
+    expect(onPairSearch).toHaveBeenCalledWith("btc");
+  });
+
+  it("opens trades panel from header trades button", () => {
+    const onOpenPanel = vi.fn();
+
+    render(
+      <ExchangeHeader
+        symbol="BTC-USD"
+        timeframeOptions={["1m", "5m"]}
+        timeframe="1m"
+        onTimeframeChange={vi.fn()}
+        pairOptions={["BTC-USD", "ETH-USD"]}
+        onPairSelect={vi.fn()}
+        onPairSearch={vi.fn().mockResolvedValue(["BTC-USD", "ETH-USD"])}
+        barStyleOptions={["candles", "bars", "line", "line-area"]}
+        barStyle="candles"
+        onBarStyleChange={vi.fn()}
+        showVolume
+        onToggleVolume={vi.fn()}
+        userId="demo-user"
+        onOpenPanel={onOpenPanel}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId("header-trades-button"));
+    expect(onOpenPanel).toHaveBeenCalledWith("trades");
   });
 
   it("shows chart style icons for each selected style", () => {

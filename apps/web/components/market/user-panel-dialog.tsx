@@ -36,7 +36,7 @@ export type UserPanelDialogProps = {
   busy: boolean;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
 
-  trades: Array<{ tradeId: string; price: number; qty: number }>;
+  trades: Array<{ tradeId: string; price: number; qty: number; inUser: string; outUser: string }>;
   tradeSummary: { lastPrice: string; totalQty: number };
 
   orders: Array<{ orderId: string; side: string; symbol: string; remainingQty: number; qty: number }>;
@@ -72,6 +72,29 @@ export function UserPanelDialog({
   cancelOrderID,
   onCancelOrder
 }: UserPanelDialogProps) {
+  const tradesPageSize = 20;
+  const [visibleTradesCount, setVisibleTradesCount] = React.useState(tradesPageSize);
+
+  React.useEffect(() => {
+    setVisibleTradesCount(tradesPageSize);
+  }, [open, tab, symbol, trades.length]);
+
+  const visibleTrades = React.useMemo(
+    () => trades.slice(0, Math.max(tradesPageSize, visibleTradesCount)),
+    [trades, visibleTradesCount]
+  );
+
+  const onTradesScroll = React.useCallback(
+    (event: React.UIEvent<HTMLDivElement>) => {
+      if (visibleTradesCount >= trades.length) return;
+      const target = event.currentTarget;
+      const distanceToBottom = target.scrollHeight - (target.scrollTop + target.clientHeight);
+      if (distanceToBottom > 24) return;
+      setVisibleTradesCount((prev) => Math.min(prev + tradesPageSize, trades.length));
+    },
+    [trades.length, visibleTradesCount]
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent data-testid="user-panel">
@@ -197,15 +220,29 @@ export function UserPanelDialog({
                 Volume: <span className="text-foreground">{tradeSummary.totalQty}</span>
               </span>
             </div>
-            <div className="space-y-2">
+            <div
+              data-testid="trades-scroll-container"
+              className="max-h-80 space-y-2 overflow-y-auto pr-1"
+              onScroll={onTradesScroll}
+            >
+              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-center rounded-md border border-border/70 bg-background/30 p-2 font-mono text-[11px] text-muted-foreground">
+                <span>IN</span>
+                <span>OUT</span>
+                <span className="px-2">PRICE</span>
+                <span>QTY</span>
+              </div>
               {trades.length === 0 && <p className="text-sm text-muted-foreground">No trades yet.</p>}
-              {trades.map((trade) => (
-                <div key={trade.tradeId} className="grid grid-cols-[1fr_auto_auto] items-center rounded-md border border-border/70 bg-background/40 p-2 font-mono text-xs">
-                  <span className="truncate pr-2">{trade.tradeId}</span>
+              {visibleTrades.map((trade) => (
+                <div key={trade.tradeId} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-center rounded-md border border-border/70 bg-background/40 p-2 font-mono text-xs">
+                  <span className="truncate pr-2">{trade.inUser}</span>
+                  <span className="truncate pr-2">{trade.outUser}</span>
                   <span className="px-2">{trade.price}</span>
                   <span>{trade.qty}</span>
                 </div>
               ))}
+              {visibleTradesCount < trades.length && (
+                <p className="py-1 text-center font-mono text-[11px] text-muted-foreground">Scroll for more</p>
+              )}
             </div>
           </div>
         )}
@@ -240,4 +277,3 @@ export function UserPanelDialog({
     </Dialog>
   );
 }
-

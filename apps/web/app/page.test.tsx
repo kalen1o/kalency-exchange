@@ -36,6 +36,8 @@ describe("Home trading workspace layout", () => {
       symbol: "BTC-USD",
       price: 102.25,
       qty: 1.2,
+      makerUserId: "sim-maker-BTC-USD",
+      takerUserId: "sim-taker-BTC-USD",
       ts: "2026-02-15T00:00:10Z"
     }
   ];
@@ -152,6 +154,19 @@ describe("Home trading workspace layout", () => {
     const workspaces = await screen.findAllByTestId("workspace-grid");
     expect(workspaces.length).toBeGreaterThan(0);
     expect(wsMock).toHaveBeenCalledWith("ws://localhost:8080/ws/ticks/BTC-USD");
+  });
+
+  it("shows trade IN/OUT participants in user panel", async () => {
+    render(<HomeClient />, { wrapper: withNuqsTestingAdapter({ hasMemory: true }) });
+    await screen.findByTestId("workspace-grid");
+
+    fireEvent.click(screen.getByTestId("header-trades-button"));
+
+    expect(await screen.findByTestId("user-panel")).toBeInTheDocument();
+    expect(screen.getByText("IN")).toBeInTheDocument();
+    expect(screen.getByText("OUT")).toBeInTheDocument();
+    expect(screen.getByText("sim-maker-BTC-USD")).toBeInTheDocument();
+    expect(screen.getByText("sim-taker-BTC-USD")).toBeInTheDocument();
   });
 
   it("shows hovered candle values when hovering the chart", async () => {

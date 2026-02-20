@@ -48,6 +48,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/v1/orders/", s.handleOrderByID)
 	s.mux.HandleFunc("/v1/orders/open/", s.handleOpenOrders)
 	s.mux.HandleFunc("/v1/wallet/", s.handleWallet)
+	s.mux.HandleFunc("/v1/admin/wallets/fund", s.handleFundWallet)
 	s.mux.HandleFunc("/v1/markets/", s.handleMarkets)
 	s.mux.HandleFunc("/healthz", s.handleHealth)
 }
@@ -138,6 +139,40 @@ func (s *Server) handleWallet(w http.ResponseWriter, r *http.Request) {
 
 	wallet := s.engine.Wallet(userID)
 	writeJSON(w, http.StatusOK, wallet)
+}
+
+func (s *Server) handleFundWallet(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		UserID string `json:"userId"`
+		Asset  string `json:"asset"`
+		Amount int64  `json:"amount"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+	req.UserID = strings.TrimSpace(req.UserID)
+	req.Asset = strings.TrimSpace(req.Asset)
+	if req.UserID == "" {
+		http.Error(w, "userId is required", http.StatusBadRequest)
+		return
+	}
+	if req.Asset == "" {
+		http.Error(w, "asset is required", http.StatusBadRequest)
+		return
+	}
+	if req.Amount <= 0 {
+		http.Error(w, "amount must be positive", http.StatusBadRequest)
+		return
+	}
+
+	s.engine.FundWallet(req.UserID, req.Asset, req.Amount)
+	writeJSON(w, http.StatusOK, s.engine.Wallet(req.UserID))
 }
 
 func (s *Server) handleMarkets(w http.ResponseWriter, r *http.Request) {

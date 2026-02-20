@@ -231,6 +231,39 @@ func TestOrderBookEndpoint(t *testing.T) {
 	}
 }
 
+func TestFundWalletEndpoint(t *testing.T) {
+	engine := matching.NewEngine()
+	server := NewServer(engine)
+
+	fundReq := httptest.NewRequest(http.MethodPost, "/v1/admin/wallets/fund", strings.NewReader(`{
+		"userId":"maker-bot",
+		"asset":"BTC",
+		"amount":50
+	}`))
+	fundReq.Header.Set("Content-Type", "application/json")
+	fundRR := httptest.NewRecorder()
+	server.ServeHTTP(fundRR, fundReq)
+
+	if fundRR.Code != http.StatusOK {
+		t.Fatalf("expected fund status 200, got %d", fundRR.Code)
+	}
+
+	walletReq := httptest.NewRequest(http.MethodGet, "/v1/wallet/maker-bot", nil)
+	walletRR := httptest.NewRecorder()
+	server.ServeHTTP(walletRR, walletReq)
+	if walletRR.Code != http.StatusOK {
+		t.Fatalf("expected wallet status 200, got %d", walletRR.Code)
+	}
+
+	var wallet matching.Wallet
+	if err := json.Unmarshal(walletRR.Body.Bytes(), &wallet); err != nil {
+		t.Fatalf("failed to decode wallet response: %v", err)
+	}
+	if wallet.Available["BTC"] != 50 {
+		t.Fatalf("expected BTC available 50, got %d", wallet.Available["BTC"])
+	}
+}
+
 func TestCORSPreflightForOrders(t *testing.T) {
 	engine := matching.NewEngine()
 	server := NewServer(engine)
